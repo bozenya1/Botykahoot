@@ -73,6 +73,7 @@ const server = http.createServer(async (req, res) => {
 
       try {
         const browser = await puppeteer.launch({ 
+          executablePath: '/usr/bin/chromium-browser',
           headless: true, 
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
         });
