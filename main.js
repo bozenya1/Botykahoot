@@ -117,9 +117,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'success', message: `Wszystkie ${count} botów zostało wysłanych!` }));
       } catch (error) {
-        console.error(error);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'error', message: 'Błąd podczas uruchamiania botów.' }));
+        console.log(`Bot ${currentNick} w grze!`);
+              } catch (err) {
+                console.log(`❌ Błąd u bota ${i} (${nickname}${i}):`, err.message);
+              } finally {
+                resolve();
+              }
       }
     });
   } else {
