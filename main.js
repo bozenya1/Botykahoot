@@ -84,31 +84,26 @@ const server = http.createServer(async (req, res) => {
           const task = new Promise((resolve) => {
             setTimeout(async () => {
               try {
-                const context = await browser.createBrowserContext();
-                const page = await context.newPage();
-                
-                await page.setDefaultNavigationTimeout(60000);
-                await page.goto('https://kahoot.it', { waitUntil: 'domcontentloaded' });
+               const context = await browser.createBrowserContext();
+const page = await context.newPage();
 
-                // Wpisanie PIN-u
-                // Czekaj na pole do wpisania PIN-u (używamy elastycznego selektora atrybutów)
-await page.waitForSelector('input[name="gameId"], input#game-input, input[type="text"]', { timeout: 15000 });
+await page.setDefaultNavigationTimeout(60000);
+// Czekamy aż ruch sieciowy całkowicie ucichnie (strona w pełni załadowana)
+await page.goto('https://kahoot.it', { waitUntil: 'networkidle0' });
 
-// Wpisanie PIN-u
-await page.type('input[name="gameId"], input#game-input, input[type="text"]', String(pin), { delay: 30 });
+// Czekamy na dowolne pole tekstowe, w które można wpisać PIN
+await page.waitForSelector('input', { timeout: 15000 });
+await page.type('input', String(pin), { delay: 20 });
 await page.keyboard.press('Enter');
 
-// Czekaj na pole nicku i wpisz go
-await page.waitForSelector('input#nickname, input[name="nickname"]', { timeout: 15000 });
+// Krótka pauza na przejście ekranu do wpisywania nicku
+await page.waitForSelector('input', { timeout: 15000 });
 const currentNick = `${nickname}${i}`;
-await page.type('input#nickname, input[name="nickname"]', currentNick, { delay: 30 });
+await page.type('input', currentNick, { delay: 20 });
 await page.keyboard.press('Enter');
 
-                console.log(`Bot ${currentNick} wszedł do gry!`);
-                resolve();
-              } catch (err) {
-                console.log(`Błąd u bota ${i}:`, err.message);
-                resolve(); // Nie blokujemy reszty, jeśli jeden bot padnie
+console.log(`Bot ${currentNick} w grze!`);
+resolve();
               }
             }, i * 300); // Odstęp 300ms między startem kolejnych botów
           });
