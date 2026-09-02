@@ -91,15 +91,18 @@ const server = http.createServer(async (req, res) => {
                 await page.goto('https://kahoot.it', { waitUntil: 'domcontentloaded' });
 
                 // Wpisanie PIN-u
-                await page.waitForSelector('input#game-input', { timeout: 10000 });
-                await page.type('input#game-input', String(pin), { delay: 30 });
-                await page.keyboard.press('Enter');
+                // Czekaj na pole do wpisania PIN-u (używamy elastycznego selektora atrybutów)
+await page.waitForSelector('input[name="gameId"], input#game-input, input[type="text"]', { timeout: 15000 });
 
-                // Wpisanie Nicku (np. Bot1, Bot2 itd.)
-                const currentNick = `${nickname}${i}`;
-                await page.waitForSelector('input#nickname', { timeout: 10000 });
-                await page.type('input#nickname', currentNick, { delay: 30 });
-                await page.keyboard.press('Enter');
+// Wpisanie PIN-u
+await page.type('input[name="gameId"], input#game-input, input[type="text"]', String(pin), { delay: 30 });
+await page.keyboard.press('Enter');
+
+// Czekaj na pole nicku i wpisz go
+await page.waitForSelector('input#nickname, input[name="nickname"]', { timeout: 15000 });
+const currentNick = `${nickname}${i}`;
+await page.type('input#nickname, input[name="nickname"]', currentNick, { delay: 30 });
+await page.keyboard.press('Enter');
 
                 console.log(`Bot ${currentNick} wszedł do gry!`);
                 resolve();
