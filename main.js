@@ -72,10 +72,17 @@ const server = http.createServer(async (req, res) => {
       console.log(`Uruchamianie ${count} botów równocześnie dla PIN: ${pin}`);
 
       try {
-        const browser = await puppeteer.launch({ 
-          headless: true, 
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
-        });
+        const browser = await puppeteer.launch({
+    executablePath: '/usr/bin/chromium-browser',
+    headless: true,
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu'
+    ]
+});
 
         // Tworzymy tablicę zadań dla każdego bota
         const botTasks = [];
