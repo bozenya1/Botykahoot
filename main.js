@@ -11,123 +11,243 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Strona główna z formularzem do podania PIN-u, nicku i liczby botów
-  if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  if (
+    req.method === 'GET' &&
+    (req.url === '/' || req.url === '/index.html')
+  ) {
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8'
+    });
+
     res.end(`
       <!DOCTYPE html>
       <html lang="pl">
-      <head><meta charset="UTF-8"><title>Kahoot Bot Panel</title></head>
+      <head>
+        <meta charset="UTF-8">
+        <title>Local Bot Panel</title>
+      </head>
+
       <body>
-        <h2>Panel Botów Kahoot</h2>
-        <label>PIN Gry:</label><br>
-        <input type="text" id="pin" placeholder="np. 123456"><br><br>
-        
-        <label>Baza nicków (każdy bot dostanie numer):</label><br>
-        <input type="text" id="nickname" value="Bot"><br><br>
+        <h2>Local Bot Panel</h2>
 
         <label>Liczba botów:</label><br>
-        <input type="number" id="count" value="5" min="1" max="50"><br><br>
+        <input
+          type="number"
+          id="count"
+          value="5"
+          min="1"
+          max="50"
+        >
 
-        <button onclick="startBot()">Wypuść boty</button>
+        <br><br>
+
+        <button onclick="startBot()">
+          Uruchom
+        </button>
+
         <p id="status"></p>
 
         <script>
           async function startBot() {
-            const pin = document.getElementById('pin').value;
-            const nickname = document.getElementById('nickname').value;
-            const count = document.getElementById('count').value;
-            const statusEl = document.getElementById('status');
+            const count =
+              Number(document.getElementById('count').value);
 
-            if (!pin) {
-              alert('Wpisz PIN!');
-              return;
-            }
+            const statusEl =
+              document.getElementById('status');
 
-            statusEl.textContent = 'Boty wchodzą do gry...';
+            statusEl.textContent =
+              'Przygotowywanie kart...';
 
             const response = await fetch('/run-bot', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pin, nickname, count: Number(count) })
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ count })
             });
+
             const result = await response.json();
+
             statusEl.textContent = result.message;
           }
         </script>
       </body>
       </html>
     `);
+
     return;
   }
 
-  // Obsługa uruchamiania botów
   if (req.method === 'POST' && req.url === '/run-bot') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+
+    req.on('data', chunk => {
+      body += chunk;
+    });
+
     req.on('end', async () => {
-      const data = JSON.parse(body);
-      const { pin, nickname, count } = data;
-
-      console.log(`Uruchamianie ${count} botów dla PIN: ${pin}`);
-
       try {
+        const data = JSON.parse(body);
+        const count = Number(data.count);
+
+        if (!Number.isInteger(count) || count < 1 || count > 50) {
+          res.writeHead(400, {
+            'Content-Type': 'application/json'
+          });
+
+          res.end(JSON.stringify({
+            status: 'error',
+            message: 'Nieprawidłowa liczba kart.'
+          }));
+
+          return;
+        }
+
         const browser = await puppeteer.launch({
           executablePath: '/usr/bin/chromium-browser',
           headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
+          ]
         });
 
-        const botTasks = [];
+        const contexts = [];
+        const pages = [];
 
-        for (let i = 1; i <= count; i++) {
-          const task = new Promise((resolve) => {
-            setTimeout(async () => {
-              try {
-                const context = await browser.createBrowserContext();
-                const page = await context.newPage();
+        try {
+          /*
+           * ETAP 1
+           * Tworzymy wszystkie osobne konteksty i karty.
+           */
 
-                await page.setDefaultNavigationTimeout(60000);
-                await page.goto('https://kahoot.it', { waitUntil: 'networkidle0' });
+          for (let i = 1; i <= count; i++) {
+            const context =
+              await browser.createBrowserContext();
 
-                await page.waitForSelector('input', { timeout: 15000 });
-                await page.type('input', String(pin), { delay: 20 });
-                await page.keyboard.press('Enter');
+            const page =
+              await context.newPage();
 
-                await page.waitForSelector('input', { timeout: 15000 });
-                const currentNick = `${nickname}${i}`;
-                await page.type('input', currentNick, { delay: 20 });
-                await page.keyboard.press('Enter');
+            contexts.push(context);
+            pages.push(page);
 
-                console.log(`Bot ${currentNick} w grze!`);
-              } catch (err) {
-                console.log(`❌ Błąd u bota ${i} (${nickname}${i}):`, err.message);
-              } finally {
-                resolve(); // Zawsze zwalniamy blokadę, żeby Promise.all nie wisiał
-              }
-            }, i * 300);
+            console.log(
+              `Karta ${i}/${count} utworzona`
+            );
+          }
+
+          /*
+           * ETAP 2
+           * Wszystkie karty przechodzą na lokalną stronę.
+           */
+
+          await Promise.all(
+            pages.map(async (page, index) => {
+              await page.goto(
+                'http://localhost:3000',
+                {
+                  waitUntil: 'domcontentloaded'
+                }
+              );
+
+              await page.evaluate(() => {
+                localStorage.clear();
+                sessionStorage.clear();
+              });
+
+              console.log(
+                `Karta ${index + 1}/${count} gotowa`
+              );
+            })
+          );
+
+          /*
+           * ETAP 3
+           * BARIERA.
+           *
+           * Dopiero tutaj program znajduje się,
+           * gdy wszystkie karty zakończyły poprzedni etap.
+           */
+
+          console.log(
+            'Wszystkie karty są gotowe!'
+          );
+
+          /*
+           * ETAP 4
+           * Wspólna akcja.
+           */
+
+          await Promise.all(
+            pages.map(async page => {
+              await page.keyboard.press('Enter');
+            })
+          );
+
+          console.log(
+            'Wszystkie karty wykonały akcję.'
+          );
+
+          res.writeHead(200, {
+            'Content-Type': 'application/json'
           });
 
-          botTasks.push(task);
+          res.end(JSON.stringify({
+            status: 'success',
+            message:
+              `Utworzono ${count} niezależnych kart.`
+          }));
+
+        } finally {
+          /*
+           * ETAP 5
+           * Cleanup.
+           */
+
+          for (const context of contexts) {
+            try {
+              await context.close();
+            } catch (err) {
+              console.error(
+                'Błąd zamykania kontekstu:',
+                err.message
+              );
+            }
+          }
+
+          await browser.close();
         }
 
-        // Czekamy, aż wszystkie boty skończą proces wchodzenia
-        await Promise.all(botTasks);
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'success', message: `Wszystkie ${count} botów zostało wysłanych!` }));
       } catch (error) {
         console.error(error);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'error', message: 'Błąd podczas uruchamiania botów.' }));
+
+        if (!res.headersSent) {
+          res.writeHead(500, {
+            'Content-Type': 'application/json'
+          });
+
+          res.end(JSON.stringify({
+            status: 'error',
+            message: error.message
+          }));
+        }
       }
     });
-  } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not Found');
+
+    return;
   }
+
+  res.writeHead(404, {
+    'Content-Type': 'text/plain; charset=utf-8'
+  });
+
+  res.end('Not Found');
 });
 
 server.listen(3000, '0.0.0.0', () => {
-  console.log('Serwer działa na porcie 3000');
+  console.log(
+    'Serwer działa na porcie 3000'
+  );
 });
