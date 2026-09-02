@@ -69,52 +69,55 @@ const server = http.createServer(async (req, res) => {
       const data = JSON.parse(body);
       const { pin, nickname, count } = data;
 
-      console.log(`Uruchamianie ${count} botów równocześnie dla PIN: ${pin}`);
+      console.log(`Uruchamianie ${count} botów dla PIN: ${pin}`);
 
       try {
         const browser = await puppeteer.launch({
-    executablePath: '/usr/bin/chromium-browser',
-    headless: true,
-    args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu'
-    ]
-});
+          executablePath: '/usr/bin/chromium-browser',
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        });
 
-        // Tworzymy tablicę zadań dla każdego bota
         const botTasks = [];
 
-        for (let i = 0; i < count; i++) {
-          botTasks.push((async () => {
-            const context = await browser.createBrowserContext();
-            const page = await context.newPage();
-            
-            try {
-              await page.goto('https://kahoot.it', { waitUntil: 'networkidle2' });
+        for (let i = 1; i <= count; i++) {
+          const task = new Promise((resolve) => {
+            setTimeout(async () => {
+              try {
+                const context = await browser.createBrowserContext();
+                const page = await context.newPage();
+                
+                await page.setDefaultNavigationTimeout(60000);
+                await page.goto('https://kahoot.it', { waitUntil: 'domcontentloaded' });
 
-              await page.waitForSelector('[data-functional-selector="game-pin-input"]');
-              await page.type('[data-functional-selector="game-pin-input"]', pin);
-              await page.keyboard.press('Enter');
+                // Wpisanie PIN-u
+                await page.waitForSelector('input#game-input', { timeout: 10000 });
+                await page.type('input#game-input', String(pin), { delay: 30 });
+                await page.keyboard.press('Enter');
 
-              await page.waitForSelector('[data-functional-selector="username-input"]');
-              await page.type('[data-functional-selector="username-input"]', `${nickname}_${i + 1}`);
-              await page.keyboard.press('Enter');
+                // Wpisanie Nicku (np. Bot1, Bot2 itd.)
+                const currentNick = `${nickname}${i}`;
+                await page.waitForSelector('input#nickname', { timeout: 10000 });
+                await page.type('input#nickname', currentNick, { delay: 30 });
+                await page.keyboard.press('Enter');
 
-              console.log(`Bot ${i + 1} dołączył do gry!`);
-            } catch (err) {
-              console.error(`Błąd u bota ${i + 1}:`, err.message);
-            }
-          })());
+                console.log(`Bot ${currentNick} wszedł do gry!`);
+                resolve();
+              } catch (err) {
+                console.log(`Błąd u bota ${i}:`, err.message);
+                resolve(); // Nie blokujemy reszty, jeśli jeden bot padnie
+              }
+            }, i * 300); // Odstęp 300ms między startem kolejnych botów
+          });
+
+          botTasks.push(task);
         }
 
-        // Uruchamiamy wszystkie boty naraz i czekamy, aż wszystkie wejdą
+        // Czekamy, aż wszystkie boty skończą proces wchodzenia
         await Promise.all(botTasks);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'success', message: `Wszystkie ${count} botów zostało wysłanych błyskawicznie!` }));
+        res.end(JSON.stringify({ status: 'success', message: `Wszystkie ${count} botów zostało wysłanych!` }));
       } catch (error) {
         console.error(error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
