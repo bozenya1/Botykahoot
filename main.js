@@ -84,28 +84,28 @@ const server = http.createServer(async (req, res) => {
           const task = new Promise((resolve) => {
             setTimeout(async () => {
               try {
-               const context = await browser.createBrowserContext();
-const page = await context.newPage();
+                const context = await browser.createBrowserContext();
+                const page = await context.newPage();
 
-await page.setDefaultNavigationTimeout(60000);
-// Czekamy aż ruch sieciowy całkowicie ucichnie (strona w pełni załadowana)
-await page.goto('https://kahoot.it', { waitUntil: 'networkidle0' });
+                await page.setDefaultNavigationTimeout(60000);
+                await page.goto('https://kahoot.it', { waitUntil: 'networkidle0' });
 
-// Czekamy na dowolne pole tekstowe, w które można wpisać PIN
-await page.waitForSelector('input', { timeout: 15000 });
-await page.type('input', String(pin), { delay: 20 });
-await page.keyboard.press('Enter');
+                await page.waitForSelector('input', { timeout: 15000 });
+                await page.type('input', String(pin), { delay: 20 });
+                await page.keyboard.press('Enter');
 
-// Krótka pauza na przejście ekranu do wpisywania nicku
-await page.waitForSelector('input', { timeout: 15000 });
-const currentNick = `${nickname}${i}`;
-await page.type('input', currentNick, { delay: 20 });
-await page.keyboard.press('Enter');
+                await page.waitForSelector('input', { timeout: 15000 });
+                const currentNick = `${nickname}${i}`;
+                await page.type('input', currentNick, { delay: 20 });
+                await page.keyboard.press('Enter');
 
-console.log(`Bot ${currentNick} w grze!`);
-resolve();
+                console.log(`Bot ${currentNick} w grze!`);
+              } catch (err) {
+                console.log(`Błąd u bota ${i}:`, err.message);
+              } finally {
+                resolve(); // Zawsze zwalniamy blokadę, żeby Promise.all nie wisiał
               }
-            }, i * 300); // Odstęp 300ms między startem kolejnych botów
+            }, i * 300);
           });
 
           botTasks.push(task);
