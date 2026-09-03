@@ -74,6 +74,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const browser = await puppeteer.launch({ 
           headless: true, 
+          executablePath: '/home/ubuntu/.cache/puppeteer/chrome/linux-152.0.7977.54/chrome-linux64/chrome',
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
         });
 
