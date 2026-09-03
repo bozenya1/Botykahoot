@@ -101,7 +101,7 @@ const server = http.createServer(async (req, res) => {
 
             try {
               // LOKALNA STRONA
-              await page.goto('http://localhost:3000', {
+              await page.goto('https://kahoot.it/', {
                 waitUntil: 'domcontentloaded'
               });
 
